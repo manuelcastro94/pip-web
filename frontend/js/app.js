@@ -12,11 +12,33 @@ class CEPIPApp {
     async init() {
         console.log('Initializing CEPIP Web App...');
         
+        // Wait for authentication to be ready
+        await this.waitForAuth();
+        
         // Set up event listeners
         this.setupEventListeners();
         
         // Load initial data
         await this.loadDashboard();
+    }
+
+    async waitForAuth() {
+        return new Promise((resolve) => {
+            const checkAuth = () => {
+                if (window.authManager && window.authManager.isAuthenticated()) {
+                    console.log('Auth is ready');
+                    resolve();
+                } else if (window.authManager && !window.authManager.token) {
+                    // No token, but authManager is ready - continue without auth
+                    console.log('No authentication found, continuing...');
+                    resolve();
+                } else {
+                    // Still waiting for authManager to initialize
+                    setTimeout(checkAuth, 100);
+                }
+            };
+            checkAuth();
+        });
     }
 
     setupEventListeners() {
