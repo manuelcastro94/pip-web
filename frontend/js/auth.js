@@ -94,13 +94,21 @@ class AuthManager {
         window.fetch = async (url, options = {}) => {
             // Only add auth headers for API calls
             if (url.startsWith('/api/') && !url.includes('/api/auth/')) {
+                console.log(`API call to: ${url}`);
+                console.log(`Token available: ${!!this.token}`);
+                console.log(`Token: ${this.token?.substring(0, 20)}...`);
+                
                 options.headers = {
                     ...options.headers,
                     'Authorization': `Bearer ${this.token}`
                 };
+                
+                console.log('Headers:', options.headers);
             }
 
             const response = await originalFetch(url, options);
+            
+            console.log(`Response status for ${url}: ${response.status}`);
             
             // If we get 401, redirect to login
             if (response.status === 401) {
