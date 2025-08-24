@@ -277,14 +277,15 @@ class EmpresasManager {
         }
     }
 
-    viewDetails(id) {
+    async viewDetails(id) {
         const empresa = this.empresas.find(e => e.enteid === id);
         if (!empresa) {
             ui.showToast('Empresa no encontrada', 'error');
             return;
         }
 
-        const detailsHTML = `
+        // Show modal with loading
+        const loadingHTML = `
             <div class="empresa-details">
                 <h4>Detalles de ${empresa.razonsocial}</h4>
                 <div class="details-grid">
@@ -301,10 +302,87 @@ class EmpresasManager {
                     <div><strong>Consorcista ID:</strong> ${empresa.consorcistaid || '-'}</div>
                     <div><strong>Fecha de Carga:</strong> ${empresa.fecha_de_carga || '-'}</div>
                 </div>
+                
+                <div class="mt-4">
+                    <h5>📍 Direcciones</h5>
+                    <div id="empresa-direcciones">Cargando direcciones...</div>
+                </div>
+                
+                <div class="mt-4">
+                    <h5>🏢 Cámaras Empresariales</h5>
+                    <div id="empresa-camaras">Cargando cámaras...</div>
+                </div>
+                
+                <div class="mt-4">
+                    <h5>👥 Sindicatos</h5>
+                    <div id="empresa-sindicatos">Cargando sindicatos...</div>
+                </div>
             </div>
         `;
 
-        ui.showModal('Detalles de Empresa', detailsHTML);
+        ui.showModal('Detalles de Empresa', loadingHTML);
+        
+        // Load additional data
+        await this.loadEmpresaRelations(id);
+    }
+
+    async loadEmpresaRelations(ente_id) {
+        try {
+            // Load direcciones, camaras, and sindicatos in parallel
+            const [direccionesRes, camarasRes, sindicatosRes] = await Promise.all([
+                fetch(`/api/records/ente/${ente_id}/direcciones`),
+                fetch(`/api/records/ente/${ente_id}/camaras`),
+                fetch(`/api/records/ente/${ente_id}/sindicatos`)
+            ]);
+
+            // Update direcciones
+            if (direccionesRes.ok) {
+                const direccionesData = await direccionesRes.json();
+                const direccionesContainer = document.getElementById('empresa-direcciones');
+                if (direccionesContainer) {
+                    if (direccionesData.direcciones && direccionesData.direcciones.length > 0) {
+                        direccionesContainer.innerHTML = direccionesData.direcciones.map(dir => 
+                            `<div class="relation-item">📍 ${dir.calle} ${dir.altura}</div>`
+                        ).join('');
+                    } else {
+                        direccionesContainer.innerHTML = '<div class="text-muted">Sin direcciones registradas</div>';
+                    }
+                }
+            }
+
+            // Update camaras
+            if (camarasRes.ok) {
+                const camarasData = await camarasRes.json();
+                const camarasContainer = document.getElementById('empresa-camaras');
+                if (camarasContainer) {
+                    if (camarasData.camaras && camarasData.camaras.length > 0) {
+                        camarasContainer.innerHTML = camarasData.camaras.map(camara => 
+                            `<div class="relation-item">🏢 ${camara.camara}</div>`
+                        ).join('');
+                    } else {
+                        camarasContainer.innerHTML = '<div class="text-muted">Sin cámaras asociadas</div>';
+                    }
+                }
+            }
+
+            // Update sindicatos
+            if (sindicatosRes.ok) {
+                const sindicatosData = await sindicatosRes.json();
+                const sindicatosContainer = document.getElementById('empresa-sindicatos');
+                if (sindicatosContainer) {
+                    if (sindicatosData.sindicatos && sindicatosData.sindicatos.length > 0) {
+                        sindicatosContainer.innerHTML = sindicatosData.sindicatos.map(sindicato => 
+                            `<div class="relation-item">👥 ${sindicato.siglas} - ${sindicato.sindicato}</div>`
+                        ).join('');
+                    } else {
+                        sindicatosContainer.innerHTML = '<div class="text-muted">Sin sindicatos asociados</div>';
+                    }
+                }
+            }
+
+        } catch (error) {
+            console.error('Error loading empresa relations:', error);
+        }
     }
 
     async createEmpresa(data) {

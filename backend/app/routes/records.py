@@ -559,3 +559,145 @@ async def get_consorcista_parcelas(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# ========== NUEVAS RELACIONES ==========
+
+@router.get("/ente/{ente_id}/direcciones")
+async def get_ente_direcciones(
+    ente_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Get all direcciones (accesos) for an ente
+    """
+    try:
+        query = """
+            SELECT ae.accesoid, c.calle, ae.altura, ae.fecha_de_carga
+            FROM accesos_ente ae
+            JOIN calle c ON ae.calleid = c.calleid
+            WHERE ae.enteid = :ente_id
+            ORDER BY c.calle, ae.altura
+        """
+        
+        result = db.execute(text(query), {"ente_id": ente_id})
+        direcciones = []
+        
+        for row in result.fetchall():
+            direcciones.append({
+                "id": row[0],
+                "calle": row[1],
+                "altura": row[2],
+                "fecha_de_carga": row[3]
+            })
+            
+        return {"direcciones": direcciones}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/ente/{ente_id}/camaras")
+async def get_ente_camaras(
+    ente_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Get all camaras for an ente
+    """
+    try:
+        query = """
+            SELECT rec.ente_camara_id, c.camara, rec.fecha_de_carga
+            FROM relacion_ente_camara rec
+            JOIN camara c ON rec.camaraid = c.camaraid
+            WHERE rec.enteid = :ente_id
+            ORDER BY c.camara
+        """
+        
+        result = db.execute(text(query), {"ente_id": ente_id})
+        camaras = []
+        
+        for row in result.fetchall():
+            camaras.append({
+                "id": row[0],
+                "camara": row[1],
+                "fecha_de_carga": row[2]
+            })
+            
+        return {"camaras": camaras}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/ente/{ente_id}/sindicatos")
+async def get_ente_sindicatos(
+    ente_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Get all sindicatos for an ente
+    """
+    try:
+        query = """
+            SELECT res.ente_sindicato_id, s.siglas, s.sindicato, res.fecha_de_carga
+            FROM relacion_ente_sindicato res
+            JOIN sindicato s ON res.sindicatoid = s.sindicatoid
+            WHERE res.enteid = :ente_id
+            ORDER BY s.sindicato
+        """
+        
+        result = db.execute(text(query), {"ente_id": ente_id})
+        sindicatos = []
+        
+        for row in result.fetchall():
+            sindicatos.append({
+                "id": row[0],
+                "siglas": row[1],
+                "sindicato": row[2],
+                "fecha_de_carga": row[3]
+            })
+            
+        return {"sindicatos": sindicatos}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/lookup/camaras")
+async def get_camaras_lookup(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    """
+    Get all camaras for dropdown
+    """
+    try:
+        query = "SELECT camaraid, camara FROM camara ORDER BY camara"
+        result = db.execute(text(query))
+        camaras = [{"id": row[0], "name": row[1]} for row in result.fetchall()]
+        return {"camaras": camaras}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/lookup/sindicatos")
+async def get_sindicatos_lookup(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    """
+    Get all sindicatos for dropdown
+    """
+    try:
+        query = "SELECT sindicatoid, siglas, sindicato FROM sindicato ORDER BY sindicato"
+        result = db.execute(text(query))
+        sindicatos = [{"id": row[0], "siglas": row[1], "name": row[2]} for row in result.fetchall()]
+        return {"sindicatos": sindicatos}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/lookup/calles")
+async def get_calles_lookup(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    """
+    Get all calles for dropdown
+    """
+    try:
+        query = "SELECT calleid, calle FROM calle ORDER BY calle"
+        result = db.execute(text(query))
+        calles = [{"id": row[0], "name": row[1]} for row in result.fetchall()]
+        return {"calles": calles}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -666,6 +666,40 @@ body {
     padding: 2rem;
 }
 
+/* Relationship items styling */
+.relation-item {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.relation-item:hover {
+    background: #e9ecef;
+}
+
+.text-muted {
+    color: #6c757d;
+    font-style: italic;
+}
+
+.mt-4 {
+    margin-top: 1.5rem;
+}
+
+.mt-4 h5 {
+    color: #495057;
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 0.5rem;
+}
+
 /* Make buttons wrap better on mobile */
 @media (max-width: 768px) {
     .form-row {
@@ -678,5 +712,10 @@ body {
         margin-bottom: 0.25rem;
         display: block;
         width: 100%;
+    }
+    
+    .relation-item {
+        font-size: 0.8rem;
+        padding: 6px 8px;
     }
 }
