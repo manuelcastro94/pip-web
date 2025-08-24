@@ -37,22 +37,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include API routes
-app.include_router(api_router, prefix="/api")
-
-# Serve static files (frontend)
-frontend_path = os.path.join(os.path.dirname(__file__), "frontend")
-if os.path.exists(frontend_path):
-    app.mount("/", StaticFiles(directory=frontend_path, html=True), name="static")
-elif os.path.exists("../frontend"):
-    app.mount("/", StaticFiles(directory="../frontend", html=True), name="static")
-elif os.path.exists("frontend"):
-    app.mount("/", StaticFiles(directory="frontend", html=True), name="static")
-
-@app.get("/")
-async def root():
-    return {"message": "CEPIP API is running", "docs": "/docs"}
-
+# Health check endpoint (must be before static files mount)
 @app.get("/health")
 async def health_check():
     try:
@@ -64,6 +49,22 @@ async def health_check():
         return {"status": "healthy", "service": "CEPIP API", "database": "connected"}
     except Exception as e:
         return {"status": "unhealthy", "service": "CEPIP API", "error": str(e)}
+
+@app.get("/")
+async def root():
+    return {"message": "CEPIP API is running", "docs": "/docs"}
+
+# Include API routes
+app.include_router(api_router, prefix="/api")
+
+# Serve static files (frontend) - must be last
+frontend_path = os.path.join(os.path.dirname(__file__), "frontend")
+if os.path.exists(frontend_path):
+    app.mount("/", StaticFiles(directory=frontend_path, html=True), name="static")
+elif os.path.exists("../frontend"):
+    app.mount("/", StaticFiles(directory="../frontend", html=True), name="static")
+elif os.path.exists("frontend"):
+    app.mount("/", StaticFiles(directory="frontend", html=True), name="static")
 
 if __name__ == "__main__":
     uvicorn.run(
