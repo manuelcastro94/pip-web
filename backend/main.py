@@ -50,10 +50,6 @@ async def health_check():
     except Exception as e:
         return {"status": "unhealthy", "service": "CEPIP API", "error": str(e)}
 
-@app.get("/")
-async def root():
-    return {"message": "CEPIP API is running", "docs": "/docs"}
-
 # Include API routes
 app.include_router(api_router, prefix="/api")
 
