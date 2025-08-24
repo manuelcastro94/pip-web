@@ -5,7 +5,7 @@ Sistema de gestión CEPIP migrado desde Microsoft Access a aplicación web moder
 ## 🏗️ Arquitectura
 
 - **Frontend**: HTML5, CSS3, Vanilla JavaScript
-- **Backend**: FastAPI (Python)
+- **Backend**: FastAPI (Python) 
 - **Base de datos**: PostgreSQL
 - **Despliegue**: Railway
 
