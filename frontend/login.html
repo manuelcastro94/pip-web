@@ -146,7 +146,19 @@
                 if (response.ok) {
                     const config = await response.json();
                     GOOGLE_CLIENT_ID = config.google_client_id;
-                    updateGoogleSignInButton();
+                    
+                    // Wait for Google GSI to be fully loaded
+                    if (window.google && window.google.accounts) {
+                        updateGoogleSignInButton();
+                    } else {
+                        // Wait for Google GSI to load
+                        const checkGoogleLoaded = setInterval(() => {
+                            if (window.google && window.google.accounts) {
+                                clearInterval(checkGoogleLoaded);
+                                updateGoogleSignInButton();
+                            }
+                        }, 100);
+                    }
                 } else if (response.status === 503) {
                     showError('Google OAuth no está configurado. Contacta al administrador.');
                 } else {
@@ -162,6 +174,32 @@
             if (GOOGLE_CLIENT_ID) {
                 const onloadDiv = document.getElementById('g_id_onload');
                 onloadDiv.setAttribute('data-client_id', GOOGLE_CLIENT_ID);
+                
+                // Reinitialize Google GSI with the new client ID
+                if (window.google && window.google.accounts) {
+                    window.google.accounts.id.initialize({
+                        client_id: GOOGLE_CLIENT_ID,
+                        callback: handleCredentialResponse,
+                        context: 'signin',
+                        ux_mode: 'popup',
+                        auto_prompt: false
+                    });
+                    
+                    // Re-render the sign-in button
+                    window.google.accounts.id.renderButton(
+                        document.querySelector('.g_id_signin'),
+                        {
+                            type: 'standard',
+                            shape: 'rectangular',
+                            theme: 'outline',
+                            text: 'signin_with',
+                            size: 'large',
+                            logo_alignment: 'left'
+                        }
+                    );
+                } else {
+                    console.error('Google GSI not loaded yet');
+                }
             }
         }
 
