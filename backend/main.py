@@ -58,13 +58,21 @@ async def root():
 app.include_router(api_router, prefix="/api")
 
 # Serve static files (frontend) - must be last
-frontend_path = os.path.join(os.path.dirname(__file__), "frontend")
-if os.path.exists(frontend_path):
-    app.mount("/", StaticFiles(directory=frontend_path, html=True), name="static")
-elif os.path.exists("../frontend"):
-    app.mount("/", StaticFiles(directory="../frontend", html=True), name="static")
-elif os.path.exists("frontend"):
-    app.mount("/", StaticFiles(directory="frontend", html=True), name="static")
+frontend_paths = [
+    "frontend",           # In production container: /app/frontend
+    "../frontend",        # Local development
+    os.path.join(os.path.dirname(__file__), "frontend")  # backend/frontend
+]
+
+for path in frontend_paths:
+    if os.path.exists(path):
+        print(f"✅ Serving frontend from: {os.path.abspath(path)}")
+        app.mount("/", StaticFiles(directory=path, html=True), name="static")
+        break
+else:
+    print("❌ Frontend directory not found in any of the expected locations")
+    print(f"Current directory: {os.getcwd()}")
+    print(f"Files in current dir: {os.listdir('.')}")
 
 if __name__ == "__main__":
     uvicorn.run(
