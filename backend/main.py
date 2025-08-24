@@ -55,7 +55,15 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "CEPIP API"}
+    try:
+        # Test database connection
+        from app.database import get_db
+        db = next(get_db())
+        db.execute("SELECT 1")
+        db.close()
+        return {"status": "healthy", "service": "CEPIP API", "database": "connected"}
+    except Exception as e:
+        return {"status": "unhealthy", "service": "CEPIP API", "error": str(e)}
 
 if __name__ == "__main__":
     uvicorn.run(
