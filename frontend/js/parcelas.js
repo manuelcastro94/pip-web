@@ -99,7 +99,7 @@ class ParcelasManager {
             
             // Calculate total surface
             const superficieTotal = this.parcelas.reduce((total, p) => {
-                return total + (parseFloat(p.superficie_has) || 0);
+                return total + (parseFloat(p.superficie_has_) || 0);
             }, 0);
 
             // Update statistics display
@@ -130,7 +130,7 @@ class ParcelasManager {
                     <td><strong>${parcela.parcela || '-'}</strong></td>
                     <td>${parcela.calle || '-'}</td>
                     <td>${parcela.numero || '-'}</td>
-                    <td>${this.formatSuperficie(parcela.superficie_has)}</td>
+                    <td>${this.formatSuperficie(parcela.superficie_has_)}</td>
                     <td>${this.formatBoolean(parcela.tieneplanta)}</td>
                     <td>${this.formatBoolean(parcela.alquilada)}</td>
                     <td>${this.getConsorcistaNombre(parcela.consorcista_nombre, parcela.consorcistaid)}</td>
@@ -310,7 +310,7 @@ class ParcelasManager {
                     <div><strong>Parcela:</strong> ${parcela.parcela || '-'}</div>
                     <div><strong>Calle:</strong> ${parcela.calle || '-'}</div>
                     <div><strong>Número:</strong> ${parcela.numero || '-'}</div>
-                    <div><strong>Superficie:</strong> ${this.formatSuperficie(parcela.superficie_has)}</div>
+                    <div><strong>Superficie:</strong> ${this.formatSuperficie(parcela.superficie_has_)}</div>
                     <div><strong>Fracción:</strong> ${parcela.fraccion || '-'}</div>
                     <div><strong>Porcentaje Reglamento:</strong> ${parcela.porcentaje_reglamento || '-'}%</div>
                     <div><strong>Tiene Planta:</strong> ${parcela.tieneplanta ? 'Sí' : 'No'}</div>
