@@ -1,7 +1,8 @@
 // API client for CEPIP backend
 class APIClient {
     constructor() {
-        this.baseURL = 'http://localhost:8000/api';
+        // Use relative URL so it works both locally and in production
+        this.baseURL = '/api';
         this.headers = {
             'Content-Type': 'application/json',
         };
@@ -9,6 +10,7 @@ class APIClient {
 
     async request(endpoint, options = {}) {
         const url = `${this.baseURL}${endpoint}`;
+        console.log('API request to:', url);
         
         const config = {
             headers: this.headers,
@@ -17,12 +19,14 @@ class APIClient {
 
         try {
             const response = await fetch(url, config);
+            console.log('API response status:', response.status);
             
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             
             const data = await response.json();
+            console.log('API response data:', data);
             return data;
         } catch (error) {
             console.error('API request failed:', error);

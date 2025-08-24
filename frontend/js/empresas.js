@@ -65,19 +65,27 @@ class EmpresasManager {
         console.log('Loading empresas...');
         
         const tableBody = document.getElementById('empresas-table-body');
-        if (!tableBody) return;
+        if (!tableBody) {
+            console.error('Table body not found!');
+            return;
+        }
         
         ui.showLoading(tableBody);
         
         try {
+            console.log('Calling API...');
             // Load empresas data from API
             const response = await api.getRecords('ente', this.currentPage, this.recordsPerPage);
+            console.log('API response:', response);
             this.empresas = response.data || [];
+            console.log('Empresas loaded:', this.empresas.length);
             
             // Load statistics
+            console.log('Loading statistics...');
             await this.loadStatistics();
             
             // Render table
+            console.log('Rendering table...');
             this.renderEmpresasTable();
             
             // Render pagination
