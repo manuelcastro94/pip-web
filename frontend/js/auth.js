@@ -13,6 +13,9 @@ class AuthManager {
             }
         }
         
+        // Setup API interceptor immediately, before init
+        this.setupAPIInterceptor();
+        
         this.init();
     }
 
@@ -59,8 +62,7 @@ class AuthManager {
         // Add user info to header
         this.addUserInfoToHeader();
         
-        // Intercept all API calls to add authentication
-        this.setupAPIInterceptor();
+        // Interceptor is already setup in constructor
     }
 
     addUserInfoToHeader() {
