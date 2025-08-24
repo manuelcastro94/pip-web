@@ -9,7 +9,7 @@ Sistema de gestión CEPIP migrado desde Microsoft Access a aplicación web moder
 - **Base de datos**: PostgreSQL
 - **Despliegue**: Railway
 
-## 🚀 Despliegue en Railway
+## 🚀 Despliegue en Railway 
 
 ### 1. Preparación
 
