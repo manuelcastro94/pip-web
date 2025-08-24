@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CEPIP - Iniciar Sesión</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+        }
+
+        .login-card {
+            background: white;
+            padding: 3rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .login-header {
+            margin-bottom: 2rem;
+        }
+
+        .login-header h1 {
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+            font-size: 2rem;
+        }
+
+        .login-header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .google-btn-container {
+            margin: 2rem 0;
+        }
+
+        .loading {
+            display: none;
+            margin: 1rem 0;
+            color: #666;
+        }
+
+        .error-message {
+            background: #ffe6e6;
+            color: #d32f2f;
+            padding: 1rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+            display: none;
+        }
+
+        .features {
+            margin-top: 2rem;
+            text-align: left;
+        }
+
+        .features h3 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+        }
+
+        .features ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .features li {
+            padding: 0.5rem 0;
+            color: #666;
+        }
+
+        .features li::before {
+            content: "✓ ";
+            color: #27ae60;
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <h1>CEPIP</h1>
+                <p>Sistema de Gestión del Parque Industrial</p>
+            </div>
+
+            <div class="google-btn-container">
+                <div id="g_id_onload"
+                     data-client_id=""
+                     data-context="signin"
+                     data-ux_mode="popup"
+                     data-callback="handleCredentialResponse"
+                     data-auto_prompt="false">
+                </div>
+                
+                <div class="g_id_signin"
+                     data-type="standard"
+                     data-shape="rectangular"
+                     data-theme="outline"
+                     data-text="signin_with"
+                     data-size="large"
+                     data-logo_alignment="left">
+                </div>
+            </div>
+
+            <div id="loading" class="loading">
+                <p>Iniciando sesión...</p>
+            </div>
+
+            <div id="error" class="error-message">
+                Error al iniciar sesión. Por favor, intenta nuevamente.
+            </div>
+
+            <div class="features">
+                <h3>Funcionalidades</h3>
+                <ul>
+                    <li>Gestión de Personas y Empresas</li>
+                    <li>Administración de Consorcistas</li>
+                    <li>Control de Parcelas</li>
+                    <li>Reportes y Estadísticas</li>
+                    <li>Exportación de Datos</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Google OAuth Configuration
+        let GOOGLE_CLIENT_ID = '';
+
+        // Load Google Client ID from backend
+        async function loadGoogleClientId() {
+            try {
+                const response = await fetch('/api/auth/config');
+                if (response.ok) {
+                    const config = await response.json();
+                    GOOGLE_CLIENT_ID = config.google_client_id;
+                    updateGoogleSignInButton();
+                } else if (response.status === 503) {
+                    showError('Google OAuth no está configurado. Contacta al administrador.');
+                } else {
+                    throw new Error('Error loading auth config');
+                }
+            } catch (error) {
+                console.error('Error loading auth config:', error);
+                showError('Error de conexión al servidor. Verifica que el backend esté funcionando.');
+            }
+        }
+
+        function updateGoogleSignInButton() {
+            if (GOOGLE_CLIENT_ID) {
+                const onloadDiv = document.getElementById('g_id_onload');
+                onloadDiv.setAttribute('data-client_id', GOOGLE_CLIENT_ID);
+            }
+        }
+
+        // Handle Google OAuth response
+        async function handleCredentialResponse(response) {
+            const loading = document.getElementById('loading');
+            const errorDiv = document.getElementById('error');
+            
+            loading.style.display = 'block';
+            errorDiv.style.display = 'none';
+
+            try {
+                const authResponse = await fetch('/api/auth/google', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        token: response.credential
+                    })
+                });
+
+                if (authResponse.ok) {
+                    const data = await authResponse.json();
+                    
+                    // Store token and user info
+                    localStorage.setItem('access_token', data.access_token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    
+                    // Redirect to main application
+                    window.location.href = '/';
+                } else {
+                    const error = await authResponse.json();
+                    showError(error.detail || 'Error al iniciar sesión');
+                }
+            } catch (error) {
+                console.error('Authentication error:', error);
+                showError('Error de conexión. Por favor, intenta nuevamente.');
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        // Check if user is already logged in
+        function checkExistingAuth() {
+            const token = localStorage.getItem('access_token');
+            if (token) {
+                // Verify token is still valid
+                fetch('/api/auth/me', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        window.location.href = '/';
+                    } else {
+                        // Token is invalid, remove it
+                        localStorage.removeItem('access_token');
+                        localStorage.removeItem('user');
+                    }
+                })
+                .catch(() => {
+                    // Error verifying token, remove it
+                    localStorage.removeItem('access_token');
+                    localStorage.removeItem('user');
+                });
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            checkExistingAuth();
+            loadGoogleClientId();
+        });
+    </script>
+</body>
+</html>
