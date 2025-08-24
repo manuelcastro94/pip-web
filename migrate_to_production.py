@@ -28,7 +28,7 @@ def main():
     try:
         # Ejecutar migración
         result = subprocess.run([
-            sys.executable, "migrate_data_mdb.py"
+            sys.executable, "migrate_data.py"
         ], env=env, check=True, capture_output=True, text=True)
         
         print("✅ Migración completada exitosamente!")
@@ -39,7 +39,7 @@ def main():
         print(f"Salida de error: {e.stderr}")
         sys.exit(1)
     except FileNotFoundError:
-        print("❌ No se encontró el script migrate_data_mdb.py")
+        print("❌ No se encontró el script migrate_data.py")
         print("Este script debe ejecutarse desde la raíz del proyecto")
         sys.exit(1)
 

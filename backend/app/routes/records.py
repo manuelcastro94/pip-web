@@ -19,7 +19,8 @@ async def get_records(
     table_name: str,
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(20, ge=1, le=100, description="Items per page"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Get paginated records from a table
@@ -156,7 +157,7 @@ async def get_records(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/lookup/empresas")
-async def get_empresas_lookup(db: Session = Depends(get_db)):
+async def get_empresas_lookup(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     """
     Get list of empresas for dropdowns
     """
@@ -170,7 +171,7 @@ async def get_empresas_lookup(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/lookup/cargos")
-async def get_cargos_lookup(db: Session = Depends(get_db)):
+async def get_cargos_lookup(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     """
     Get list of cargos for dropdowns
     """
@@ -184,7 +185,7 @@ async def get_cargos_lookup(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/lookup/areas")
-async def get_areas_lookup(db: Session = Depends(get_db)):
+async def get_areas_lookup(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     """
     Get list of areas for dropdowns
     """
@@ -198,7 +199,7 @@ async def get_areas_lookup(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/lookup/consorcistas")
-async def get_consorcistas_lookup(db: Session = Depends(get_db)):
+async def get_consorcistas_lookup(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     """
     Get list of consorcistas for dropdowns
     """
@@ -212,7 +213,7 @@ async def get_consorcistas_lookup(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/lookup/tipos-consorcista")
-async def get_tipos_consorcista_lookup(db: Session = Depends(get_db)):
+async def get_tipos_consorcista_lookup(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     """
     Get list of tipos de consorcista for dropdowns
     """
@@ -229,7 +230,8 @@ async def get_tipos_consorcista_lookup(db: Session = Depends(get_db)):
 async def create_persona_relation(
     persona_id: int,
     relation_data: Dict[str, Any],
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Create a relation between persona and empresa with cargo
@@ -257,7 +259,8 @@ async def create_persona_relation(
 @router.get("/persona/{persona_id}/relaciones")
 async def get_persona_relations(
     persona_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Get all relations for a persona
@@ -296,7 +299,8 @@ async def get_persona_relations(
 async def delete_persona_relation(
     persona_id: int,
     relacion_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Delete a relation between persona and empresa
@@ -402,7 +406,8 @@ async def create_parcela_with_consorcista(
 async def get_record(
     table_name: str,
     record_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Get a specific record by ID
@@ -425,7 +430,8 @@ async def get_record(
 async def create_record(
     table_name: str,
     record_data: Dict[str, Any],
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Create a new record
@@ -448,7 +454,8 @@ async def update_record(
     table_name: str,
     record_id: int,
     record_data: Dict[str, Any],
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Update an existing record
@@ -470,7 +477,8 @@ async def update_record(
 async def delete_record(
     table_name: str,
     record_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Delete a record
