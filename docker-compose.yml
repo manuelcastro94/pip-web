@@ -28,6 +28,7 @@ services:
       DATABASE_URL: postgresql://cepip_user:cepip_password@db:5432/cepip_db
       SECRET_KEY: your-secret-key-change-in-production
       CORS_ORIGINS: http://localhost:3000,http://localhost:8080
+      ENVIRONMENT: development
     ports:
       - "8000:8000"
     volumes:

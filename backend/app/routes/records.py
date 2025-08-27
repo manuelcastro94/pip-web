@@ -19,6 +19,12 @@ async def get_records(
     table_name: str,
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(20, ge=1, le=100, description="Items per page"),
+    search: Optional[str] = Query(None, description="Search term"),
+    es_socio: Optional[str] = Query(None, description="Filter by es_socio (true/false)"),
+    esconsorcista: Optional[str] = Query(None, description="Filter by esconsorcista (true/false)"),
+    con_email: Optional[str] = Query(None, description="Filter by has email (true/false)"),
+    tieneplanta: Optional[str] = Query(None, description="Filter by tiene planta (true/false)"),
+    alquilada: Optional[str] = Query(None, description="Filter by alquilada (true/false)"),
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
@@ -34,34 +40,108 @@ async def get_records(
         # Calculate offset
         offset = (page - 1) * limit
         
-        # Get total count
-        count_result = db.execute(text(f"SELECT COUNT(*) FROM {table_name}"))
+        # Build WHERE conditions based on filters
+        where_conditions = []
+        params = {"limit": limit, "offset": offset}
+        
+        def build_filters(table_name, search, es_socio, esconsorcista, con_email, tieneplanta, alquilada):
+            conditions = []
+            
+            if table_name == 'ente':
+                if search:
+                    conditions.append("(e.razonsocial ILIKE :search OR CAST(e.cuit AS TEXT) ILIKE :search)")
+                    params["search"] = f"%{search}%"
+                if es_socio in ['true', 'false']:
+                    conditions.append("e.es_socio = :es_socio")
+                    params["es_socio"] = es_socio == 'true'
+                if esconsorcista in ['true', 'false']:
+                    conditions.append("e.esconsorcista = :esconsorcista")
+                    params["esconsorcista"] = esconsorcista == 'true'
+                    
+            elif table_name == 'persona':
+                if search:
+                    conditions.append("(p.nombre_apellido ILIKE :search OR p.correo_electronico ILIKE :search OR p.telefono ILIKE :search)")
+                    params["search"] = f"%{search}%"
+                if con_email in ['true', 'false']:
+                    if con_email == 'true':
+                        conditions.append("(p.correo_electronico IS NOT NULL AND p.correo_electronico != '')")
+                    else:
+                        conditions.append("(p.correo_electronico IS NULL OR p.correo_electronico = '')")
+                        
+            elif table_name == 'consorcista':
+                if search:
+                    conditions.append("(c.nombre ILIKE :search OR CAST(c.nro_consorcista AS TEXT) ILIKE :search)")
+                    params["search"] = f"%{search}%"
+                    
+            elif table_name == 'parcela':
+                if search:
+                    conditions.append("(p.parcela ILIKE :search OR p.calle ILIKE :search)")
+                    params["search"] = f"%{search}%"
+                if tieneplanta in ['true', 'false']:
+                    conditions.append("p.tieneplanta = :tieneplanta")
+                    params["tieneplanta"] = tieneplanta == 'true'
+                if alquilada in ['true', 'false']:
+                    conditions.append("p.alquilada = :alquilada")
+                    params["alquilada"] = alquilada == 'true'
+                    
+            return " AND ".join(conditions)
+        
+        where_clause = build_filters(table_name, search, es_socio, esconsorcista, con_email, tieneplanta, alquilada)
+        where_sql = f" WHERE {where_clause}" if where_clause else ""
+        
+        # Get total count with filters
+        if table_name == 'ente':
+            count_query = f"""
+                SELECT COUNT(*) FROM ente e 
+                LEFT JOIN subrubro sr ON e.actividadprincipalid = sr.subrubroid 
+                LEFT JOIN rubro r ON sr.rubroid = r.rubroid 
+                LEFT JOIN sector s ON r.sectorid = s.sectorid 
+                {where_sql}
+            """
+        elif table_name == 'persona':
+            count_query = f"SELECT COUNT(*) FROM persona p {where_sql}"
+        elif table_name == 'consorcista':
+            count_query = f"SELECT COUNT(*) FROM consorcista c {where_sql}"
+        elif table_name == 'parcela':
+            count_query = f"SELECT COUNT(*) FROM parcela p {where_sql}"
+        else:
+            count_query = f"SELECT COUNT(*) FROM {table_name} {where_sql}"
+            
+        count_result = db.execute(text(count_query), params)
         total = count_result.scalar()
         
         # Get paginated data with JOINs for better display
         if table_name == 'parcela':
             # Join with consorcista to get the name
-            query = """
+            query = f"""
                 SELECT p.*, c.nombre as consorcista_nombre 
                 FROM parcela p 
                 LEFT JOIN consorcista c ON p.consorcistaid = c.consorcistaid 
+                {where_sql}
                 ORDER BY p.parcelaid 
                 LIMIT :limit OFFSET :offset
             """
         elif table_name == 'ente':
             # Join with sector and rubro for empresas (through subrubro)
-            query = """
+            query = f"""
                 SELECT e.*, s.sector as sector_nombre, r.rubro as rubro_nombre, sr.subrubro as subrubro_nombre
                 FROM ente e 
                 LEFT JOIN subrubro sr ON e.actividadprincipalid = sr.subrubroid 
                 LEFT JOIN rubro r ON sr.rubroid = r.rubroid 
                 LEFT JOIN sector s ON r.sectorid = s.sectorid 
+                {where_sql}
                 ORDER BY e.enteid 
                 LIMIT :limit OFFSET :offset
             """
         elif table_name == 'persona':
             # Join with relaciones to get empresas and cargos
-            query = """
+            having_clause = ""
+            if where_clause:
+                # For persona, we need to use HAVING instead of WHERE because of GROUP BY
+                having_clause = f" HAVING {where_clause.replace('WHERE ', '')}"
+                where_sql = ""  # Clear WHERE since we use HAVING
+            
+            query = f"""
                 SELECT p.*, 
                        STRING_AGG(DISTINCT e.razonsocial, ', ' ORDER BY e.razonsocial) as empresas,
                        STRING_AGG(DISTINCT c.cargo, ', ' ORDER BY c.cargo) as cargos
@@ -70,12 +150,19 @@ async def get_records(
                 LEFT JOIN ente e ON rep.enteid = e.enteid 
                 LEFT JOIN cargo c ON rep.cargoid = c.cargoid 
                 GROUP BY p.personaid, p.fecha_de_carga, p.nombre_apellido, p.telefono, p.celular, p.correo_electronico, p.consorcistaid
+                {having_clause}
                 ORDER BY p.personaid 
                 LIMIT :limit OFFSET :offset
             """
         elif table_name == 'consorcista':
             # Join with tipo and count parcelas/empresas
-            query = """
+            having_clause = ""
+            if where_clause:
+                # For consorcista, we need to use HAVING instead of WHERE because of GROUP BY
+                having_clause = f" HAVING {where_clause.replace('WHERE ', '')}"
+                where_sql = ""  # Clear WHERE since we use HAVING
+                
+            query = f"""
                 SELECT c.*, 
                        tc.tipo as tipo_nombre,
                        COUNT(DISTINCT p.parcelaid) as parcelas_count,
@@ -85,13 +172,14 @@ async def get_records(
                 LEFT JOIN parcela p ON c.consorcistaid = p.consorcistaid 
                 LEFT JOIN ente e ON c.consorcistaid = e.consorcistaid 
                 GROUP BY c.consorcistaid, c.nombre, c.nro_consorcista, c.tipoid, c.fecha_de_carga, tc.tipo
+                {having_clause}
                 ORDER BY c.consorcistaid 
                 LIMIT :limit OFFSET :offset
             """
         else:
-            query = f"SELECT * FROM {table_name} ORDER BY 1 LIMIT :limit OFFSET :offset"
+            query = f"SELECT * FROM {table_name} {where_sql} ORDER BY 1 LIMIT :limit OFFSET :offset"
         
-        result = db.execute(text(query), {"limit": limit, "offset": offset})
+        result = db.execute(text(query), params)
         
         # Convert to list of dictionaries
         columns = result.keys()
@@ -437,16 +525,147 @@ async def create_record(
     Create a new record
     """
     try:
-        # For now, just return success with the provided data
-        # In real implementation, this would insert into the database
-        new_record = {"id": 999, **record_data}
+        # Validate table name to prevent SQL injection
+        valid_tables = ['ente', 'persona', 'consorcista', 'parcela']
+        if table_name not in valid_tables:
+            raise HTTPException(status_code=404, detail="Table not found")
         
-        return {
-            "message": "Record created successfully",
-            "data": new_record
-        }
+        if table_name == 'ente':
+            # Get next available ID
+            next_id_result = db.execute(text("SELECT COALESCE(MAX(enteid), 0) + 1 FROM ente"))
+            next_id = next_id_result.scalar()
+            
+            # Create empresa/ente
+            query = """
+                INSERT INTO ente (enteid, razonsocial, cuit, nro_socio_cepip, web, observaciones, 
+                                 es_socio, esconsorcista, actividadprincipalid, actividadsecundariaid, 
+                                 consorcistaid, fecha_de_carga)
+                VALUES (:enteid, :razonsocial, :cuit, :nro_socio_cepip, :web, :observaciones,
+                        :es_socio, :esconsorcista, :actividadprincipalid, :actividadsecundariaid,
+                        :consorcistaid, CURRENT_DATE)
+            """
+            
+            db.execute(text(query), {
+                "enteid": next_id,
+                "razonsocial": record_data.get("razonsocial"),
+                "cuit": record_data.get("cuit"),
+                "nro_socio_cepip": record_data.get("nro_socio_cepip"),
+                "web": record_data.get("web"),
+                "observaciones": record_data.get("observaciones"),
+                "es_socio": record_data.get("es_socio", False),
+                "esconsorcista": record_data.get("esconsorcista", False),
+                "actividadprincipalid": record_data.get("actividadprincipalid"),
+                "actividadsecundariaid": record_data.get("actividadsecundariaid"),
+                "consorcistaid": record_data.get("consorcistaid")
+            })
+            
+            new_id = next_id
+            db.commit()
+            
+            return {
+                "message": "Empresa creada exitosamente",
+                "data": {"enteid": new_id, **record_data}
+            }
+            
+        elif table_name == 'persona':
+            print(f"🔍 Backend: Creating persona with data: {record_data}")
+            
+            # Get next available ID for persona
+            next_id_result = db.execute(text("SELECT COALESCE(MAX(personaid), 0) + 1 FROM persona"))
+            next_id = next_id_result.scalar()
+            print(f"🔍 Backend: Next persona ID will be: {next_id}")
+            
+            # Create persona
+            query = """
+                INSERT INTO persona (personaid, nombre_apellido, telefono, celular, 
+                                   correo_electronico, consorcistaid, fecha_de_carga)
+                VALUES (:personaid, :nombre_apellido, :telefono, :celular,
+                        :correo_electronico, :consorcistaid, CURRENT_DATE)
+            """
+            
+            print(f"🔍 Backend: Executing INSERT for persona with ID: {next_id}")
+            db.execute(text(query), {
+                "personaid": next_id,
+                "nombre_apellido": record_data.get("nombre_apellido"),
+                "telefono": record_data.get("telefono"),
+                "celular": record_data.get("celular"),
+                "correo_electronico": record_data.get("correo_electronico"),
+                "consorcistaid": record_data.get("consorcistaid")
+            })
+            
+            db.commit()
+            print(f"🔍 Backend: Persona {next_id} created successfully")
+            
+            return {
+                "message": "Persona creada exitosamente",
+                "data": {"personaid": next_id, **record_data}
+            }
+            
+        elif table_name == 'parcela':
+            # Create parcela (has auto-increment)
+            query = """
+                INSERT INTO parcela (parcela, calle, numero, superficie_has_, porcentaje_reglamento,
+                                   consorcistaid, fraccion, tieneplanta, alquilada, enteid, fecha_de_carga)
+                VALUES (:parcela, :calle, :numero, :superficie_has, :porcentaje_reglamento,
+                        :consorcistaid, :fraccion, :tieneplanta, :alquilada, :enteid, CURRENT_DATE)
+                RETURNING parcelaid
+            """
+            
+            result = db.execute(text(query), {
+                "parcela": record_data.get("parcela"),
+                "calle": record_data.get("calle"),
+                "numero": record_data.get("numero"),
+                "superficie_has": record_data.get("superficie_has"),
+                "porcentaje_reglamento": record_data.get("porcentaje_reglamento"),
+                "consorcistaid": record_data.get("consorcistaid"),
+                "fraccion": record_data.get("fraccion"),
+                "tieneplanta": record_data.get("tieneplanta", False),
+                "alquilada": record_data.get("alquilada", False),
+                "enteid": record_data.get("enteid")
+            })
+            
+            new_id = result.fetchone()[0]
+            db.commit()
+            
+            return {
+                "message": "Parcela creada exitosamente",
+                "data": {"parcelaid": new_id, **record_data}
+            }
+            
+        elif table_name == 'consorcista':
+            # Create consorcista (has auto-increment)
+            query = """
+                INSERT INTO consorcista (nombre, nro_consorcista, tipoid, fecha_de_carga)
+                VALUES (:nombre, :nro_consorcista, :tipoid, CURRENT_DATE)
+                RETURNING consorcistaid
+            """
+            
+            result = db.execute(text(query), {
+                "nombre": record_data.get("nombre"),
+                "nro_consorcista": record_data.get("nro_consorcista"),
+                "tipoid": record_data.get("tipoid")
+            })
+            
+            new_id = result.fetchone()[0]
+            db.commit()
+            
+            return {
+                "message": "Consorcista creado exitosamente",
+                "data": {"consorcistaid": new_id, **record_data}
+            }
+        else:
+            # For other tables, return a placeholder for now
+            new_record = {"id": 999, **record_data}
+            
+            return {
+                "message": f"Record created successfully in {table_name}",
+                "data": new_record
+            }
         
+    except HTTPException:
+        raise
     except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/{table_name}/{record_id}")
@@ -484,15 +703,45 @@ async def delete_record(
     Delete a record
     """
     try:
-        # For now, just return success
-        # In real implementation, this would delete the database record
+        # Map table names to actual table names and their ID columns
+        table_mapping = {
+            "ente": ("ente", "enteid"),
+            "persona": ("persona", "personaid"),
+            "consorcista": ("consorcista", "consorcistaid"),
+            "parcela": ("parcela", "parcelaid"),
+            "sector": ("sector", "sectorid")
+        }
+        
+        if table_name not in table_mapping:
+            raise HTTPException(status_code=400, detail=f"Table '{table_name}' not supported")
+        
+        actual_table, id_column = table_mapping[table_name]
+        
+        # First check if record exists
+        check_query = f"SELECT 1 FROM {actual_table} WHERE {id_column} = :record_id"
+        result = db.execute(text(check_query), {"record_id": record_id})
+        
+        if not result.fetchone():
+            raise HTTPException(status_code=404, detail=f"Record with ID {record_id} not found")
+        
+        # Delete the record
+        delete_query = f"DELETE FROM {actual_table} WHERE {id_column} = :record_id"
+        result = db.execute(text(delete_query), {"record_id": record_id})
+        db.commit()
+        
+        if result.rowcount == 0:
+            raise HTTPException(status_code=404, detail=f"Record with ID {record_id} not found")
         
         return {
             "message": "Record deleted successfully",
-            "id": record_id
+            "id": record_id,
+            "table": actual_table
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/parcela/{parcela_id}/consorcista")

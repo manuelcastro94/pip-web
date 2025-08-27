@@ -97,3 +97,38 @@ async def auth_config():
     return {
         "google_client_id": client_id
     }
+
+@router.post("/dev-login")
+async def dev_login(db: Session = Depends(get_db)):
+    """
+    Development-only login endpoint for local testing
+    """
+    import os
+    
+    # Only allow in development mode
+    if os.getenv("ENVIRONMENT", "production") != "development":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Endpoint not found"
+        )
+    
+    # Create a development user
+    dev_user = {
+        "email": "dev@cepip.local",
+        "name": "Usuario de Desarrollo",
+        "picture": "",
+        "is_admin": True
+    }
+    
+    # Create access token
+    access_token_expires = timedelta(minutes=60*24)  # 24 hours
+    access_token = AuthService.create_access_token(
+        data={"sub": dev_user["email"]}, 
+        expires_delta=access_token_expires
+    )
+    
+    return LoginResponse(
+        access_token=access_token,
+        token_type="bearer",
+        user=dev_user
+    )

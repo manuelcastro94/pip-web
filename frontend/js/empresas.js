@@ -74,8 +74,8 @@ class EmpresasManager {
         
         try {
             console.log('Calling API...');
-            // Load empresas data from API
-            const response = await api.getRecords('ente', this.currentPage, this.recordsPerPage);
+            // Load empresas data from API with filters
+            const response = await api.getRecords('ente', this.currentPage, this.recordsPerPage, this.currentFilters);
             console.log('API response:', response);
             this.empresas = response.data || [];
             console.log('Empresas loaded:', this.empresas.length);
@@ -99,21 +99,28 @@ class EmpresasManager {
 
     async loadStatistics() {
         try {
+            // Load real statistics from API instead of calculating from paginated data
+            const response = await fetch('/api/stats/empresas');
+            const stats = await response.json();
+
+            // Update statistics display with totals from entire database
+            document.getElementById('total-empresas').textContent = stats.total_empresas || 0;
+            document.getElementById('empresas-socios').textContent = stats.socios_cepip || 0;
+            document.getElementById('empresas-consorcistas').textContent = stats.consorcistas || 0;
+            document.getElementById('total-sectores').textContent = stats.total_sectores || 0;
+
+        } catch (error) {
+            console.error('Error loading statistics:', error);
+            // Fallback to calculating from current paginated data if API fails
             const totalEmpresas = this.empresas.length;
             const socios = this.empresas.filter(e => e.es_socio).length;
             const consorcistas = this.empresas.filter(e => e.esconsorcista).length;
-            
-            // Count unique sectors
             const sectores = new Set(this.empresas.map(e => e.sector_nombre).filter(Boolean)).size;
 
-            // Update statistics display
             document.getElementById('total-empresas').textContent = totalEmpresas;
             document.getElementById('empresas-socios').textContent = socios;
             document.getElementById('empresas-consorcistas').textContent = consorcistas;
             document.getElementById('total-sectores').textContent = sectores;
-
-        } catch (error) {
-            console.error('Error loading statistics:', error);
         }
     }
 
@@ -142,6 +149,9 @@ class EmpresasManager {
                     <td>
                         <button class="btn btn-secondary btn-sm" onclick="empresasManager.editEmpresa(${empresa.enteid})">
                             Editar
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="empresasManager.deleteEmpresa(${empresa.enteid})">
+                            Eliminar
                         </button>
                         <button class="btn btn-info btn-sm" onclick="empresasManager.viewDetails(${empresa.enteid})">
                             Detalles
@@ -223,7 +233,8 @@ class EmpresasManager {
 
     applyFilters() {
         console.log('Applying filters:', this.currentFilters);
-        // For now, just reload data - in production would filter on server
+        // Reset to first page when applying filters
+        this.currentPage = 1;
         this.loadEmpresas();
     }
 
@@ -274,6 +285,33 @@ class EmpresasManager {
         } catch (error) {
             console.error('Error editing empresa:', error);
             ui.showToast('Error al cargar la empresa', 'error');
+        }
+    }
+
+    async deleteEmpresa(id) {
+        const empresa = this.empresas.find(e => e.enteid === id);
+        if (!empresa) {
+            ui.showToast('Empresa no encontrada', 'error');
+            return;
+        }
+
+        const confirmMessage = `¿Estás seguro de que quieres eliminar la empresa "${empresa.razonsocial}"?\n\nEsta acción no se puede deshacer.`;
+        
+        if (!confirm(confirmMessage)) {
+            return;
+        }
+
+        try {
+            await api.deleteRecord('ente', id);
+            ui.showToast('Empresa eliminada correctamente', 'success');
+            
+            // Reload empresas data and statistics
+            await this.loadEmpresas();
+            await this.loadStatistics();
+            
+        } catch (error) {
+            console.error('Error deleting empresa:', error);
+            ui.showToast('Error al eliminar la empresa', 'error');
         }
     }
 
@@ -386,8 +424,11 @@ class EmpresasManager {
     }
 
     async createEmpresa(data) {
+        console.log('createEmpresa called with data:', data);
         try {
+            console.log('Calling API to create empresa...');
             await api.createRecord('ente', data);
+            console.log('Empresa created successfully');
             ui.showToast('Empresa creada correctamente', 'success');
             ui.hideModal();
             await this.loadEmpresas();

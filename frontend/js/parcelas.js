@@ -71,8 +71,8 @@ class ParcelasManager {
         ui.showLoading(tableBody);
         
         try {
-            // Load parcelas data from API
-            const response = await api.getRecords('parcela', this.currentPage, this.recordsPerPage);
+            // Load parcelas data from API with filters
+            const response = await api.getRecords('parcela', this.currentPage, this.recordsPerPage, this.currentFilters);
             this.parcelas = response.data || [];
             
             // Load statistics
@@ -92,24 +92,30 @@ class ParcelasManager {
 
     async loadStatistics() {
         try {
-            // Get statistics from the current data and API
+            // Load real statistics from API instead of calculating from paginated data
+            const response = await fetch('/api/stats/parcelas');
+            const stats = await response.json();
+
+            // Update statistics display with totals from entire database
+            document.getElementById('total-parcelas').textContent = stats.total_parcelas || 0;
+            document.getElementById('parcelas-con-planta').textContent = stats.parcelas_con_planta || 0;
+            document.getElementById('parcelas-alquiladas').textContent = stats.parcelas_alquiladas || 0;
+            document.getElementById('superficie-total').textContent = (stats.superficie_total || 0) + ' ha';
+
+        } catch (error) {
+            console.error('Error loading statistics:', error);
+            // Fallback to calculating from current paginated data if API fails
             const totalParcelas = this.parcelas.length;
             const conPlanta = this.parcelas.filter(p => p.tieneplanta).length;
             const alquiladas = this.parcelas.filter(p => p.alquilada).length;
-            
-            // Calculate total surface
             const superficieTotal = this.parcelas.reduce((total, p) => {
                 return total + (parseFloat(p.superficie_has_) || 0);
             }, 0);
 
-            // Update statistics display
             document.getElementById('total-parcelas').textContent = totalParcelas;
             document.getElementById('parcelas-con-planta').textContent = conPlanta;
             document.getElementById('parcelas-alquiladas').textContent = alquiladas;
             document.getElementById('superficie-total').textContent = superficieTotal.toFixed(2) + ' ha';
-
-        } catch (error) {
-            console.error('Error loading statistics:', error);
         }
     }
 
@@ -215,9 +221,9 @@ class ParcelasManager {
     }
 
     applyFilters() {
-        // This would apply client-side filtering or make a new API call with filters
         console.log('Applying filters:', this.currentFilters);
-        // For now, just reload data
+        // Reset to first page when applying filters
+        this.currentPage = 1;
         this.loadParcelas();
     }
 

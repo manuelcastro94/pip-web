@@ -14,46 +14,95 @@ class PersonasManager {
     }
 
     setupEventListeners() {
+        console.log('🔍 Setting up PersonasManager event listeners...');
+        
+        // Remove any existing listeners first to prevent duplicates
+        this.removeEventListeners();
+        
         // Refresh button
         const refreshBtn = document.getElementById('refresh-personas');
         if (refreshBtn) {
-            refreshBtn.addEventListener('click', () => this.loadPersonas());
+            this.refreshHandler = () => this.loadPersonas();
+            refreshBtn.addEventListener('click', this.refreshHandler);
         }
 
         // Search input
         const searchInput = document.getElementById('search-persona');
         if (searchInput) {
-            searchInput.addEventListener('input', (e) => {
+            this.searchHandler = (e) => {
                 this.currentFilters.search = e.target.value;
                 this.applyFilters();
-            });
+            };
+            searchInput.addEventListener('input', this.searchHandler);
         }
 
         // Filter select
         const filterEmail = document.getElementById('filter-con-email');
         if (filterEmail) {
-            filterEmail.addEventListener('change', (e) => {
+            this.filterEmailHandler = (e) => {
                 this.currentFilters.con_email = e.target.value;
                 this.applyFilters();
-            });
+            };
+            filterEmail.addEventListener('change', this.filterEmailHandler);
         }
 
         // Clear filters
         const clearFiltersBtn = document.getElementById('clear-personas-filters');
         if (clearFiltersBtn) {
-            clearFiltersBtn.addEventListener('click', () => this.clearFilters());
+            this.clearFiltersHandler = () => this.clearFilters();
+            clearFiltersBtn.addEventListener('click', this.clearFiltersHandler);
         }
 
         // Add persona button
         const addPersonaBtn = document.getElementById('add-persona');
         if (addPersonaBtn) {
-            addPersonaBtn.addEventListener('click', () => this.showAddPersonaModal());
+            this.addPersonaHandler = () => {
+                console.log('🔍 Add persona button clicked');
+                this.showAddPersonaModal();
+            };
+            addPersonaBtn.addEventListener('click', this.addPersonaHandler);
         }
 
         // Export button
         const exportBtn = document.getElementById('export-personas');
         if (exportBtn) {
-            exportBtn.addEventListener('click', () => this.exportPersonas());
+            this.exportHandler = () => this.exportPersonas();
+            exportBtn.addEventListener('click', this.exportHandler);
+        }
+        
+        console.log('🔍 PersonasManager event listeners set up completed');
+    }
+
+    removeEventListeners() {
+        // Remove existing listeners to prevent duplicates
+        const refreshBtn = document.getElementById('refresh-personas');
+        if (refreshBtn && this.refreshHandler) {
+            refreshBtn.removeEventListener('click', this.refreshHandler);
+        }
+
+        const searchInput = document.getElementById('search-persona');
+        if (searchInput && this.searchHandler) {
+            searchInput.removeEventListener('input', this.searchHandler);
+        }
+
+        const filterEmail = document.getElementById('filter-con-email');
+        if (filterEmail && this.filterEmailHandler) {
+            filterEmail.removeEventListener('change', this.filterEmailHandler);
+        }
+
+        const clearFiltersBtn = document.getElementById('clear-personas-filters');
+        if (clearFiltersBtn && this.clearFiltersHandler) {
+            clearFiltersBtn.removeEventListener('click', this.clearFiltersHandler);
+        }
+
+        const addPersonaBtn = document.getElementById('add-persona');
+        if (addPersonaBtn && this.addPersonaHandler) {
+            addPersonaBtn.removeEventListener('click', this.addPersonaHandler);
+        }
+
+        const exportBtn = document.getElementById('export-personas');
+        if (exportBtn && this.exportHandler) {
+            exportBtn.removeEventListener('click', this.exportHandler);
         }
     }
 
@@ -66,8 +115,8 @@ class PersonasManager {
         ui.showLoading(tableBody);
         
         try {
-            // Load personas data from API
-            const response = await api.getRecords('persona', this.currentPage, this.recordsPerPage);
+            // Load personas data from API with filters
+            const response = await api.getRecords('persona', this.currentPage, this.recordsPerPage, this.currentFilters);
             this.personas = response.data || [];
             
             // Load statistics
@@ -87,19 +136,28 @@ class PersonasManager {
 
     async loadStatistics() {
         try {
+            // Load real statistics from API instead of calculating from paginated data
+            const response = await fetch('/api/stats/personas');
+            const stats = await response.json();
+
+            // Update statistics display with totals from entire database
+            document.getElementById('total-personas').textContent = stats.total_personas || 0;
+            document.getElementById('personas-con-email').textContent = stats.personas_con_email || 0;
+            document.getElementById('personas-con-telefono').textContent = stats.personas_con_telefono || 0;
+            document.getElementById('total-relaciones').textContent = stats.total_relaciones || 0;
+
+        } catch (error) {
+            console.error('Error loading statistics:', error);
+            // Fallback to calculating from current paginated data if API fails
             const totalPersonas = this.personas.length;
             const conEmail = this.personas.filter(p => p.correo_electronico && p.correo_electronico.trim()).length;
             const conTelefono = this.personas.filter(p => p.telefono && p.telefono.trim()).length;
             const conRelaciones = this.personas.filter(p => p.empresas && p.empresas.trim()).length;
 
-            // Update statistics display
             document.getElementById('total-personas').textContent = totalPersonas;
             document.getElementById('personas-con-email').textContent = conEmail;
             document.getElementById('personas-con-telefono').textContent = conTelefono;
             document.getElementById('total-relaciones').textContent = conRelaciones;
-
-        } catch (error) {
-            console.error('Error loading statistics:', error);
         }
     }
 
@@ -208,6 +266,8 @@ class PersonasManager {
 
     applyFilters() {
         console.log('Applying filters:', this.currentFilters);
+        // Reset to first page when applying filters
+        this.currentPage = 1;
         this.loadPersonas();
     }
 
@@ -333,14 +393,29 @@ class PersonasManager {
     }
 
     async createPersona(data) {
+        console.log('🔍 createPersona called with:', data);
+        console.log('🔍 Call stack:', new Error().stack);
+        
+        // Prevent double submissions
+        if (this.isCreating) {
+            console.log('🔍 Already creating persona, ignoring duplicate call');
+            return;
+        }
+        
+        this.isCreating = true;
+        
         try {
+            console.log('🔍 Calling API createRecord...');
             await api.createRecord('persona', data);
+            console.log('🔍 API call completed successfully');
             ui.showToast('Persona creada correctamente', 'success');
             ui.hideModal();
             await this.loadPersonas();
         } catch (error) {
             console.error('Error creating persona:', error);
             ui.showToast('Error al crear la persona', 'error');
+        } finally {
+            this.isCreating = false;
         }
     }
 

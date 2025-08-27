@@ -207,16 +207,30 @@ class UIManager {
 
     // Show modal
     showModal(title, content, onSave) {
+        console.log('showModal called with:', { title, hasContent: !!content, hasCallback: !!onSave });
+        
         const modal = document.getElementById('record-modal');
         const modalTitle = document.getElementById('modal-title');
         const modalBody = modal.querySelector('.modal-body');
+        const form = document.getElementById('record-form');
+        
+        console.log('Modal elements found:', { modal: !!modal, modalTitle: !!modalTitle, modalBody: !!modalBody, form: !!form });
         
         modalTitle.textContent = title;
-        modalBody.innerHTML = content;
+        
+        // Insert content inside the existing form instead of replacing the entire modal body
+        if (form) {
+            form.innerHTML = content;
+        } else {
+            // Fallback: if form doesn't exist, create one with the content
+            modalBody.innerHTML = `<form id="record-form">${content}</form>`;
+        }
+        
         modal.classList.add('active');
         
         // Store callback for save button
         this.onModalSave = onSave;
+        console.log('onModalSave stored:', !!this.onModalSave);
     }
 
     // Hide modal

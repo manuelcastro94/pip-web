@@ -12,8 +12,16 @@ class APIClient {
         const url = `${this.baseURL}${endpoint}`;
         console.log('API request to:', url);
         
+        // Get auth token from localStorage
+        const token = localStorage.getItem('access_token');
+        const headers = { ...this.headers };
+        
+        if (token) {
+            headers.Authorization = `Bearer ${token}`;
+        }
+        
         const config = {
-            headers: this.headers,
+            headers: headers,
             ...options
         };
 
@@ -65,8 +73,20 @@ class APIClient {
         return this.get('/stats');
     }
 
-    async getRecords(table = 'main', page = 1, limit = 20) {
-        return this.get(`/records/${table}?page=${page}&limit=${limit}`);
+    async getRecords(table = 'main', page = 1, limit = 20, filters = {}) {
+        const params = new URLSearchParams({
+            page: page.toString(),
+            limit: limit.toString()
+        });
+        
+        // Add filters to params if they exist
+        Object.entries(filters).forEach(([key, value]) => {
+            if (value !== null && value !== undefined && value !== '') {
+                params.append(key, value);
+            }
+        });
+        
+        return this.get(`/records/${table}?${params.toString()}`);
     }
 
     async getRecord(table, id) {
@@ -74,7 +94,11 @@ class APIClient {
     }
 
     async createRecord(table, data) {
-        return this.post(`/records/${table}`, data);
+        console.log('🔍 API createRecord called with table:', table, 'data:', data);
+        console.log('🔍 API Call stack:', new Error().stack);
+        const result = await this.post(`/records/${table}`, data);
+        console.log('🔍 API createRecord result:', result);
+        return result;
     }
 
     async updateRecord(table, id, data) {

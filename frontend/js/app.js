@@ -65,16 +65,64 @@ class CEPIPApp {
         // Modal controls
         const modalClose = document.getElementById('modal-close');
         const modalCancel = document.getElementById('modal-cancel');
+        const modalSave = document.getElementById('modal-save');
         
         if (modalClose) modalClose.addEventListener('click', () => ui.hideModal());
         if (modalCancel) modalCancel.addEventListener('click', () => ui.hideModal());
+        
+        // Add click listener to save button for debugging
+        if (modalSave) {
+            modalSave.addEventListener('click', (e) => {
+                console.log('Save button clicked! Button type:', e.target.type);
+                
+                // Check if form exists and is valid
+                const form = document.getElementById('record-form');
+                console.log('Form found:', !!form);
+                
+                if (form) {
+                    console.log('Form has submit event listeners:', form.onsubmit);
+                    console.log('Form action:', form.action);
+                    console.log('Form method:', form.method);
+                    console.log('Button form attribute:', e.target.getAttribute('form'));
+                    
+                    // Try to manually trigger form submit
+                    console.log('Manually triggering form submit...');
+                    const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+                    const result = form.dispatchEvent(submitEvent);
+                    console.log('Submit event dispatched, result:', result);
+                }
+            });
+        }
 
-        // Modal form submission
+        // Modal form submission - only for generic data section
         const recordForm = document.getElementById('record-form');
+        console.log('Setting up form listener, form found:', !!recordForm);
+        
         if (recordForm) {
             recordForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                this.handleFormSubmit(e.target);
+                console.log('Form submit event triggered!');
+                
+                // Only handle form submission if we're in the generic data section
+                // Let specific managers (empresas, personas, etc.) handle their own forms
+                const currentSection = document.querySelector('.section.active')?.id;
+                console.log('Current section:', currentSection);
+                console.log('ui.onModalSave available:', !!ui.onModalSave);
+                
+                if (currentSection === 'data') {
+                    console.log('Handling as generic data section');
+                    e.preventDefault();
+                    this.handleFormSubmit(e.target);
+                } else if (ui.onModalSave) {
+                    // Let the specific section managers handle the form
+                    console.log('Handling with section-specific callback');
+                    e.preventDefault();
+                    const data = ui.getFormData(e.target);
+                    console.log('Form data:', data);
+                    ui.onModalSave(data);
+                } else {
+                    console.log('No handler found, preventing default');
+                    e.preventDefault();
+                }
             });
         }
 

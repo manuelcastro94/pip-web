@@ -139,6 +139,18 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     token = credentials.credentials
     email = AuthService.verify_token(token)
     
+    # Handle development user
+    if email == "dev@cepip.local" and os.getenv("ENVIRONMENT") == "development":
+        return {
+            "id": -1,  # Special ID for dev user
+            "google_id": "dev_user",
+            "email": "dev@cepip.local",
+            "name": "Usuario de Desarrollo",
+            "picture": "",
+            "is_active": True,
+            "is_admin": True,
+        }
+    
     result = db.execute(
         text("SELECT * FROM users WHERE email = :email AND is_active = true"),
         {"email": email}

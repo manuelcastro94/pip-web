@@ -58,8 +58,8 @@ class ConsorcistaManager {
         ui.showLoading(tableBody);
         
         try {
-            // Load consorcistas data from API
-            const response = await api.getRecords('consorcista', this.currentPage, this.recordsPerPage);
+            // Load consorcistas data from API with filters
+            const response = await api.getRecords('consorcista', this.currentPage, this.recordsPerPage, this.currentFilters);
             this.consorcistas = response.data || [];
             
             // Load statistics
@@ -79,19 +79,28 @@ class ConsorcistaManager {
 
     async loadStatistics() {
         try {
+            // Load real statistics from API instead of calculating from paginated data
+            const response = await fetch('/api/stats/consorcistas');
+            const stats = await response.json();
+
+            // Update statistics display with totals from entire database
+            document.getElementById('total-consorcistas').textContent = stats.total_consorcistas || 0;
+            document.getElementById('parcelas-consorcistas').textContent = stats.parcelas_consorcistas || 0;
+            document.getElementById('empresas-consorcistas').textContent = stats.empresas_consorcistas || 0;
+            document.getElementById('tipos-consorcistas').textContent = stats.tipos_consorcistas || 0;
+
+        } catch (error) {
+            console.error('Error loading statistics:', error);
+            // Fallback to calculating from current paginated data if API fails
             const totalConsorcistas = this.consorcistas.length;
             const totalParcelas = this.consorcistas.reduce((sum, c) => sum + (parseInt(c.parcelas_count) || 0), 0);
             const totalEmpresas = this.consorcistas.reduce((sum, c) => sum + (parseInt(c.empresas_count) || 0), 0);
             const tipos = new Set(this.consorcistas.map(c => c.tipo_nombre).filter(Boolean)).size;
 
-            // Update statistics display
             document.getElementById('total-consorcistas').textContent = totalConsorcistas;
             document.getElementById('parcelas-consorcistas').textContent = totalParcelas;
             document.getElementById('empresas-consorcistas').textContent = totalEmpresas;
             document.getElementById('tipos-consorcistas').textContent = tipos;
-
-        } catch (error) {
-            console.error('Error loading statistics:', error);
         }
     }
 

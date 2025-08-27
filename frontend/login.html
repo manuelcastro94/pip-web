@@ -122,6 +122,14 @@
                 Error al iniciar sesión. Por favor, intenta nuevamente.
             </div>
 
+            <!-- Development Login Button -->
+            <div id="dev-login-container" style="display: none; margin: 1rem 0;">
+                <button id="dev-login-btn" class="btn btn-warning" style="width: 100%; padding: 0.75rem; background: #f39c12; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                    🔧 Acceso de Desarrollo
+                </button>
+                <p style="font-size: 0.8rem; color: #666; margin-top: 0.5rem;">Solo para desarrollo local</p>
+            </div>
+
             <div class="features">
                 <h3>Funcionalidades</h3>
                 <ul>
@@ -160,13 +168,66 @@
                         }, 100);
                     }
                 } else if (response.status === 503) {
-                    showError('Google OAuth no está configurado. Contacta al administrador.');
+                    showError('Google OAuth no está configurado - Usando modo de desarrollo.');
+                    showDevLoginOption();
                 } else {
                     throw new Error('Error loading auth config');
                 }
             } catch (error) {
                 console.error('Error loading auth config:', error);
-                showError('Error de conexión al servidor. Verifica que el backend esté funcionando.');
+                showError('Error de conexión al servidor. Se muestra opción de desarrollo.');
+                showDevLoginOption();
+            }
+        }
+
+        // Show development login option
+        function showDevLoginOption() {
+            const devContainer = document.getElementById('dev-login-container');
+            if (devContainer) {
+                devContainer.style.display = 'block';
+            }
+            
+            // Also hide the Google button container since it's not working
+            const googleContainer = document.querySelector('.google-btn-container');
+            if (googleContainer) {
+                googleContainer.style.display = 'none';
+            }
+        }
+
+        // Handle development login
+        async function handleDevLogin() {
+            const loading = document.getElementById('loading');
+            const errorDiv = document.getElementById('error');
+            
+            loading.style.display = 'block';
+            errorDiv.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/auth/dev-login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Store token and user info
+                    localStorage.setItem('access_token', data.access_token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    
+                    // Redirect to main application
+                    window.location.href = '/';
+                } else {
+                    const error = await response.json();
+                    showError(error.detail || 'Error en login de desarrollo');
+                }
+            } catch (error) {
+                console.error('Development login error:', error);
+                showError('Error de conexión. Por favor, intenta nuevamente.');
+            } finally {
+                loading.style.display = 'none';
             }
         }
 
@@ -280,6 +341,12 @@
         document.addEventListener('DOMContentLoaded', () => {
             checkExistingAuth();
             loadGoogleClientId();
+            
+            // Setup development login button
+            const devLoginBtn = document.getElementById('dev-login-btn');
+            if (devLoginBtn) {
+                devLoginBtn.addEventListener('click', handleDevLogin);
+            }
         });
     </script>
 </body>
